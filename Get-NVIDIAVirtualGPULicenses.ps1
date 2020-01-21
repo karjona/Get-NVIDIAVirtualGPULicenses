@@ -35,8 +35,8 @@
 Parse nvidialsadmin output to easily obtain consumed and total NVIDIA GRID licenses in the environment.
 
 .DESCRIPTION
-The Get-NVIDIAVirtualGPULicenses script returns an string with license usage data (feature name, licenses consumed
-and licenses total) of a NVIDIA Virtual GPU License Server.
+The Get-NVIDIAVirtualGPULicenses script returns a JSON with license usage data (feature name, licenses consumed,
+license available and licenses total) of a NVIDIA Virtual GPU License Server.
 
 This script must be run on the NVIDIA License Server and requires a working installation of nvidialsadmin.bat: a
 command line utility that is installed by default with the license server.
@@ -64,8 +64,7 @@ param(
 $NVIDIALSAdminFullPath
 )
 
-process {
-  $output = @'
+$output = @'
 =======================================================================================
 Feature ID      Feature Name           Feature Version   Feature Count Used/Available
 =======================================================================================
@@ -74,14 +73,22 @@ Feature ID      Feature Name           Feature Version   Feature Count Used/Avai
 =======================================================================================
 
 '@
-  
-  $regex = "(?m)^(?<id>\d+)(?:\s{2,25})(?<feature>.+?)(?:\s{2,45})(?<version>.+?)(?:\s{2,45})(?<used>\d+)(?:\/)(?<available>\d+)"
-  
-  $results = $output | Select-String $regex -AllMatches
-  
-  foreach ($result in $results.Matches) {
-    $result.Groups["feature"].Value
-    $result.Groups["used"].Value
-    [Int16]$result.Groups["available"].Value + [Int16]$result.Groups["used"].Value
-  }
+
+#Set-Location -Path $NVIDIALSAdminFullPath
+#$output = & '.\nvidialsadmin.bat' -licenses -verbose
+
+$regex = "(?m)^(?<id>\d+)(?:\s{2,25})(?<feature>.+?)(?:\s{2,45})(?<version>.+?)(?:\s{2,45})(?<used>\d+)(?:\/)(?<available>\d+)"
+$results = $output | Select-String $regex -AllMatches
+
+$json = @()
+
+foreach ($result in $results.Matches) {
+  $r = @{}
+  $r["Name"] = $result.Groups["feature"].Value
+  $r["Used"] = [Int16]$result.Groups["used"].Value
+  $r["Available"] = [Int16]$result.Groups["available"].Value
+  $r["Total"] = [Int16]$result.Groups["available"].Value + [Int16]$result.Groups["used"].Value
+  $json += $r
 }
+
+ConvertTo-Json -InputObject $json
