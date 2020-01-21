@@ -64,21 +64,21 @@ param(
 $NVIDIALSAdminFullPath
 )
 
-$output = @'
-=======================================================================================
-Feature ID      Feature Name           Feature Version   Feature Count Used/Available
-=======================================================================================
-1               Quadro-Virtual-DWS            5.0                  0/60
-2               GRID-Virtual-Apps             3.0                  17/43
-=======================================================================================
+#$output = @'
+#=======================================================================================
+#Feature ID      Feature Name           Feature Version   Feature Count Used/Available
+#=======================================================================================
+#1               Quadro-Virtual-DWS            5.0                  0/60
+#2               GRID-Virtual-Apps             3.0                  17/43
+#=======================================================================================
+#
+#'@
 
-'@
-
-#Set-Location -Path $NVIDIALSAdminFullPath
-#$output = & '.\nvidialsadmin.bat' -licenses -verbose
+Set-Location -Path $NVIDIALSAdminFullPath
+$output = & '.\nvidialsadmin.bat' -licenses -verbose | Out-String
 
 $regex = "(?m)^(?<id>\d+)(?:\s{2,25})(?<feature>.+?)(?:\s{2,45})(?<version>.+?)(?:\s{2,45})(?<used>\d+)(?:\/)(?<available>\d+)"
-$results = $output | Select-String $regex -AllMatches
+$results = Select-String -Pattern $regex -InputObject $output -AllMatches
 
 $json = @()
 
