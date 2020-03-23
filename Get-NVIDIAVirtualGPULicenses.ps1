@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.1
+.VERSION 0.2
 
 .GUID 607fb605-4905-4e2f-849f-0dee2fe9415d
 
@@ -8,7 +8,7 @@
 
 .COMPANYNAME
 
-.COPYRIGHT (c) 2019 Kilian Arjona. All rights reserved.
+.COPYRIGHT (c) 2019-2020 Kilian Arjona. All rights reserved.
 
 .TAGS NVIDIA GRID license server
 
@@ -25,6 +25,9 @@
 .EXTERNALSCRIPTDEPENDENCIES
 
 .RELEASENOTES
+
+0.2 - 23-Mar-2020
+-- Group data from different licenses if they use the same Feature Name
 
 0.1 - 21-Jan-2020
 -- First release. Yay!
@@ -74,21 +77,55 @@ $NVIDIALSAdminFullPath
 #
 #'@
 
+#$output = @'
+#=======================================================================================
+#Feature ID      Feature Name           Feature Version   Feature Count Used/Available
+#=======================================================================================
+#3               GRID-Virtual-Apps             3.0                  10/340
+#4               GRID-Virtual-Apps             3.0                  0/135
+#5               GRID-Virtual-PC               2.0                  1/134
+#=======================================================================================
+#
+#'@
+
 Set-Location -Path $NVIDIALSAdminFullPath
 $output = & '.\nvidialsadmin.bat' -licenses -verbose | Out-String
 
 $regex = "(?m)^(?<id>\d+)(?:\s{2,25})(?<feature>.+?)(?:\s{2,45})(?<version>.+?)(?:\s{2,45})(?<used>\d+)(?:\/)(?<available>\d+)"
 $results = Select-String -Pattern $regex -InputObject $output -AllMatches
 
-$json = @()
+$JSON = @()
+$ParsedResults = @{}
 
 foreach ($result in $results.Matches) {
-  $r = @{}
-  $r["Name"] = $result.Groups["feature"].Value
-  $r["Used"] = [Int16]$result.Groups["used"].Value
-  $r["Available"] = [Int16]$result.Groups["available"].Value
-  $r["Total"] = [Int16]$result.Groups["available"].Value + [Int16]$result.Groups["used"].Value
-  $json += $r
+  $Name = $result.Groups["feature"].Value
+  $Used = [Int16]$result.Groups["used"].Value
+  $Available = [Int16]$result.Groups["available"].Value
+  $Total = [Int16]$result.Groups["available"].Value + [Int16]$result.Groups["used"].Value
+
+  if ($ParsedResults.Contains($Name)) {
+    $ParsedResults.$Name.Used += $Used
+    $ParsedResults.$Name.Available += $Available
+    $ParsedResults.$Name.Total += $Total
+  } else {
+    $r = @{}
+    $r[$Name] = @{
+      "Name" = $Name
+      "Used" = $Used
+      "Available" = $Available
+      "Total" = $Total
+    }
+    $ParsedResults += $r
+  }
 }
 
-ConvertTo-Json -InputObject $json
+foreach ($pr in $ParsedResults.Values) {
+  $JSON += @{
+    "Name" = $pr.Name
+    "Total" = $pr.Total
+    "Available" = $pr.Available
+    "Used" = $pr.Used
+  }
+}
+
+ConvertTo-Json -InputObject $JSON
